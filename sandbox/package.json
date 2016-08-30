@@ -5,8 +5,5 @@
     "opam": {
       "Yojson": "yojson"
     }
-  },
-  "dependencies": {
-    "Cheese": "./local/cheese"
   }
 }
