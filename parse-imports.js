@@ -28,7 +28,7 @@ module.exports = (file, importPrefix) => {
     }
   })
 
-  text.replace(/\[%%import \{\w+\} from ([\w\.]+)\]/g, (_, source) => {
+  text.replace(/\[%%import \{[^\}]+\} from ([\w\.]+)\]/g, (_, source) => {
     const parts = source.split(/\./g)
     if (parts[0] === 'Self') {
       deps.push({

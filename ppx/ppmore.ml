@@ -39,7 +39,7 @@ let rec newModIdent source final =
 let makeType source target loc =
   match target with
     | Pexp_record ([({txt = Lident left}, {pexp_desc = Pexp_ident {txt = Lident rename}})], _) ->
-      {pstr_desc =
+      [{pstr_desc =
         Pstr_type [{
           ptype_name = {txt = rename; loc = loc};
           ptype_kind = Ptype_abstract;
@@ -49,7 +49,7 @@ let makeType source target loc =
           ptype_manifest = Some {
             ptyp_desc = Ptyp_constr ({txt = newModIdent source left; loc = loc}, []);
             ptyp_loc = loc; ptyp_attributes = [] };
-          ptype_attributes=[]; ptype_loc=loc }]; pstr_loc=loc }
+          ptype_attributes=[]; ptype_loc=loc }]; pstr_loc=loc }]
     | _ -> failwith "Invalid type import"
 
 let makeMod left source loc =
@@ -62,25 +62,32 @@ let makeMod left source loc =
         pmb_attributes=[]; pmb_loc=loc }; pstr_loc=loc }
 
 let makeLet rename source left loc =
-    [%stri let [%p {ppat_desc = Ppat_var {txt = rename; loc=loc}; ppat_loc = loc; ppat_attributes=[]}] = [%e {
+  [%stri let [%p {ppat_desc = Ppat_var {txt = rename; loc=loc}; ppat_loc = loc; ppat_attributes=[]}] = [%e {
       pexp_desc = (Pexp_ident {txt = Ldot ((if isSelf source then (convertlid source) else source), left); loc=loc});
       pexp_attributes = [];
       pexp_loc = loc}]]
 
-let makeright source (target:Parsetree.expression_desc) loc =
+let rec makeLets source items loc =
+    match items with
+    | [] -> []
+    | ({txt = Lident left}, {pexp_desc = Pexp_ident {txt = Lident rename}})::rest ->
+    (makeLet rename source left loc)::(makeLets source rest loc)
+    | _ -> failwith "Invalid `import` statement"
+
+let makeRight source (target:Parsetree.expression_desc) loc =
   match target with
-  | Pexp_record ([({txt = Lident left}, {pexp_desc = Pexp_ident {txt = Lident rename}})], _) ->
-      makeLet rename source left loc
+  | Pexp_record (items, _) ->
+      makeLets source items loc
       (* (Pexp_construct ({txt = Lident frommod; loc = loc}, None)) *)
   | Pexp_construct ({txt = Lident left}, _) ->
-      makeMod left source loc
-  | _ -> failwith "Invalid"
+      [makeMod left source loc]
+  | _ -> failwith "Invalid import values"
 
+type a = {a: int; b: int; c: int}
+let m = {a= 10; b= 20; c=10}
+let z = {m with a = 30; b = 40;}
 
-let getenv_mapper argv =
-  (* Our getenv_mapper only overrides the handling of expressions in the default mapper. *)
-  { default_mapper with
-    structure_item = fun mapper structure_item ->
+let map_item = fun default_mapper mapper structure_item ->
       match structure_item with
       (* Is this an extension node? *)
       | { pstr_desc = Pstr_extension (({ txt = "import"; loc }, apply), _)} ->
@@ -90,7 +97,7 @@ let getenv_mapper argv =
               [("", {pexp_desc = target});
               ("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
               ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) }, _)}] ->
-          [%stri let _ = ()]
+          [[%stri let _ = ()]]
         | PStr [{ pstr_desc = Pstr_eval ({ pexp_desc = Pexp_apply
             ({pexp_desc = Pexp_ident {txt = Lident "typ"}},
               [("", {pexp_desc = target});
@@ -98,18 +105,36 @@ let getenv_mapper argv =
               ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) }, _)}] ->
           makeType source target loc
         | PStr [{ pstr_desc = Pstr_eval ({pexp_desc = Pexp_construct ({txt = Lident left}, _)}, _)}] ->
-          [%stri let _ = ()]
+          [[%stri let _ = ()]]
         | PStr [{ pstr_desc = Pstr_eval ({ pexp_desc = Pexp_apply
             ({pexp_desc = target},
               [("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
               ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) }, _)}] ->
-          makeright source target loc
+          makeRight source target loc
         | _ ->
           raise (Location.Error (
                   Location.error ~loc "[%import] should be of the form [%import <target> from <source>] where target is either an ident or a destructure, and source is a Some.Thing"))
         end
       (* Delegate to the default mapper. *)
-      | x -> default_mapper.structure_item mapper x;
+      | x -> [default_mapper mapper x]
+
+let getenv_mapper argv =
+  (* Our getenv_mapper only overrides the handling of expressions in the default mapper. *)
+  { default_mapper with
+    structure = (fun mapper structure ->
+      (* let rec process items collect = match items with
+        | [] -> collect
+        | head::tail -> (process tail ((map_item mapper head)::collect)) in
+      (process structure []) *)
+      List.fold_right
+      (fun item items ->
+        List.concat
+        [(map_item default_mapper.structure_item mapper item); items]
+        )
+        structure
+        []
+      );
+    (* structure_item = (map_item default_mapper.structure_item); *)
   }
 
 let () = register "import" getenv_mapper
