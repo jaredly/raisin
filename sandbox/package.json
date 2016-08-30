@@ -1,0 +1,12 @@
+{
+  "name": "awesome",
+  "ocaml": {
+    "bin": "./A.ml",
+    "opam": {
+      "Yojson": "yojson"
+    }
+  },
+  "dependencies": {
+    "Cheese": "./local/cheese"
+  }
+}

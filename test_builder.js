@@ -1,9 +1,15 @@
-
 const path = require('path')
 const build = require('./builder')
 const mkdirp = require('mkdirp')
 
-const base = path.join(__dirname, 'sandbox')
+let base
+if (process.argv.length > 2) {
+  base = path.join(process.cwd(), process.argv[2])
+} else {
+  base = process.cwd()
+}
+
+const config = require(path.join(base, 'package.json'))
 const ctx = {
   paths: {
     base: base,
@@ -21,16 +27,5 @@ mkdirp.sync(ctx.paths.build)
 mkdirp.sync(ctx.paths.tmp)
 mkdirp.sync(ctx.paths.bin)
 
-build({
-  name: 'a-import',
-  ocaml: {
-    bin: './A.ml',
-    opam: {
-      Yojson: 'yojson',
-    },
-  },
-  dependencies: {
-    Cheese: './local/cheese',
-  },
-}, ctx)
+build(config, ctx)
 

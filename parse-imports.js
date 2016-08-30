@@ -31,15 +31,22 @@ module.exports = (file, importPrefix) => {
   text.replace(/\[%%import \{[^\}]+\} from ([\w\.]+)\]/g, (_, source) => {
     const parts = source.split(/\./g)
     if (parts[0] === 'Self') {
-      deps.push({
-        isSelf: true,
-        name: parts[0] + importPrefix + '__' + parts[1],
-      })
+      const name = parts[0] + importPrefix + '__' + parts[1]
+      if (!found[name]) {
+        found[name] = true
+        deps.push({
+          isSelf: true,
+          name: name
+        })
+      }
     } else {
-      deps.push({
-        name: parts[0],
-        full: parts,
-      })
+      if (!found[parts[0]]) {
+        found[parts[0]] = true
+        deps.push({
+          name: parts[0],
+          full: parts,
+        })
+      }
     }
   })
   // console.log('DEPS', file, deps)
