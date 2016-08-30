@@ -1,0 +1,3 @@
+PKG utop merlin_extend compiler-libs easy-format re.str
+B _build _build_test
+S .

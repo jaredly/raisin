@@ -14,3 +14,7 @@ $ cd ppx && make ppx
 $ cd sandbox; ../rsn.js
 $ ./sandbox/awesome
 ```
+
+## Thoughts
+I think stuff like `menhir` integration would be great to do through
+plugins... but how well do plugins work w/ ocaml?

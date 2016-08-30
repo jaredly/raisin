@@ -6,6 +6,7 @@ module.exports = (file, importPrefix) => {
   // console.log('parsing', text)
   const deps = []
   const found = {}
+
   text.replace(/\[%%import \((\w+)\) from ([\w\.]+)\]/g, (_, target, source) => {
     const parts = source.split(/\./g)
     if (parts[0] === 'Self') {
@@ -25,6 +26,17 @@ module.exports = (file, importPrefix) => {
           full: parts.concat([target]),
         })
       }
+    }
+  })
+
+  text.replace(/\[%%import\s+(\w+)\s*\]/g, (_, source) => {
+    const parts = source.split(/\./g)
+    if (!found[parts[0]]) {
+      found[parts[0]] = true
+      deps.push({
+        name: parts[0],
+        full: parts,
+      })
     }
   })
 

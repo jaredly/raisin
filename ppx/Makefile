@@ -4,9 +4,16 @@ both: ppx build
 ppx: convert_imports.native
 
 convert_imports.native: convert_imports.ml
+	@rm -rf _build
 	@mkdir _build
-	@cd _build && ln -s ../convert_imports.ml ./
-	@cd _build && ocamlfind ocamlopt -package ppx_tools.metaquot -package compiler-libs.common convert_imports.ml -linkpkg -o ../convert_imports.native
+	@cd _build && ln -s ../convert_imports.ml ../convert_utils.ml ./
+	@cd _build && ocamlfind ocamlopt -package ppx_tools.metaquot -package compiler-libs.common convert_utils.ml convert_imports.ml -linkpkg -o ../convert_imports.native
+
+menhir_deps.native: menhir_deps.ml
+	@rm -rf _build
+	@mkdir _build
+	@cd _build && ln -s ../menhir_deps.ml ../convert_utils.ml ./
+	@cd _build && ocamlfind ocamlopt -package compiler-libs.common convert_utils.ml menhir_deps.ml -linkpkg -o ../menhir_deps.native
 
 compilerLibs.cmi:
 	@ocamlc -pack -o compilerLibs.cmo `ocamlfind query compiler-libs`/parsetree.cmi

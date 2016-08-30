@@ -14,17 +14,25 @@ const fs = require('fs')
 module.exports = (config, ctx) => {
   // process deps
   processDependencies(config, ctx)
+  // console.log(ctx.deps)
   // Make the main bin?
-  const dest = path.join(ctx.paths.bin, config.name)
-  makeBin(
-    dest,
-    makeSource(config.ocaml.bin, ctx.paths),
-    ctx
-  )
-  // TODO is this the right place?
-  if (!fs.existsSync(path.join(ctx.paths.base, config.name))) {
-    symlink(dest, ctx.paths.base)
+  if (typeof config.ocaml.bin === 'string') {
+    config.ocaml.bin = {[config.name]: config.ocaml.bin}
   }
+  Object.keys(config.ocaml.bin).forEach(dest => {
+    const src = config.ocaml.bin[dest]
+    const destPath = path.join(ctx.paths.bin, dest)
+    makeBin(
+      destPath,
+      makeSource(src, ctx.paths),
+      ctx
+    )
+    // TODO is this the right place?
+    const link = path.join(ctx.paths.base, destPath)
+    if (!fs.existsSync(link)) {
+      symlink(destPath, link)
+    }
+  })
 }
 
 const makeBin = (dest, refile, ctx) => {
@@ -34,6 +42,10 @@ const makeBin = (dest, refile, ctx) => {
 }
 
 const getPackageCmos = (item, ctx) => {
+  if (!item) {
+    // Umm is this OK?
+    return []
+  }
   if (item.type === 'opam') {
     const deps = item.requires.map(name => getPackageCmos(ctx.deps.opam[name], ctx))
     return [].concat(...deps, item['archive(byte)'])
@@ -42,7 +54,8 @@ const getPackageCmos = (item, ctx) => {
     const deps = item.requires.map(name => getPackageCmos(ctx.deps.npm[name], ctx))
     return [].concat(...deps, item['archive(byte)'])
   }
-  throw new Erorr('unknown type')
+  console.log(item)
+  throw new Error('unknown type')
 }
 
 const getCompiled = (item, ctx) => {
@@ -99,11 +112,33 @@ const makeCmo = (item, deps, results, ctx) => {
       symlink(dep, tmp, true)
     }
   })
-  // TODO ppx, pp
-  ocamlCompile(fullName, {
-    cwd: tmp,
-    prefix: getImportPrefix(item.source, ctx.paths.base)
-  })
+  try {
+    // TODO ppx, pp
+    ocamlCompile(fullName, {
+      cwd: tmp,
+      prefix: getImportPrefix(item.source, ctx.paths.base),
+      showSource: ctx.opts.showSource,
+    })
+  } catch (e) {
+    const match = e.message.match(/Error: Unbound module (\w+)/)
+    if (match) {
+      // console.log(deps)
+      console.log(tmp)
+      console.log('\n')
+      console.log(`  Undefined module "${match[1]}" in ${item.moduleName} \n    (${item.source})`)
+      const maybepath = path.join(path.dirname(item.source), match[1].toLowerCase() + '.ml')
+      if (fs.existsSync(maybepath)) {
+        console.log(`Looks like there's a file ${maybepath} -- did you forget to import it?`)
+      }
+      console.log('\n')
+      process.exit(1)
+    }
+    // console.error(e)
+    console.log(Object.keys(found))
+    console.log(results)
+    console.log(item)
+    throw e
+  }
   move(path.join(tmp, item.moduleName + '.cmi'), item['archive(interface)'])
   move(path.join(tmp, item.moduleName + '.cmo'), item['archive(byte)'])
   rmDir(tmp)
@@ -121,7 +156,8 @@ const getDeps = (file, ctx) => {
     } else {
       const dep = ctx.deps.npm[item.name] || ctx.deps.opam[item.name]
       if  (!dep) {
-        throw new Error(`Unrecognized package: ${dep}. Is it declared in package.json?`)
+        // console.log(ctx.deps.opam)
+        throw new Error(`Unrecognized package: ${item.name}. Is it declared in package.json?`)
       }
       return dep
     }

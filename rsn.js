@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const path = require('path')
 const build = require('./builder')
 const mkdirp = require('mkdirp')
@@ -20,6 +21,9 @@ const ctx = {
   deps: {
     opam: {},
     npm: {},
+  },
+  opts: {
+    showSource: false,
   },
 }
 
