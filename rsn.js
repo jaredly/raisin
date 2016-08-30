@@ -28,4 +28,3 @@ mkdirp.sync(ctx.paths.tmp)
 mkdirp.sync(ctx.paths.bin)
 
 build(config, ctx)
-
