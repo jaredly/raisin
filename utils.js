@@ -3,7 +3,7 @@ const path = require('path')
 const mkdirp = require('mkdirp')
 const fs = require('fs')
 
-const IMPORT_PPX = path.join(__dirname, 'ppx', 'ppmore.native')
+const IMPORT_PPX = path.join(__dirname, 'ppx', 'convert_imports.native')
 
 const sh = (cmd, opts) => {
   // console.log('SH:', cmd, opts && opts.cwd)
