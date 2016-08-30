@@ -7,16 +7,21 @@ const IMPORT_PPX = path.join(__dirname, 'ppx', 'ppmore.native')
 
 const sh = (cmd, opts) => {
   // console.log('SH:', cmd, opts && opts.cwd)
-  execSync(cmd, {cwd: opts && opts.cwd})
+  return execSync(cmd, {cwd: opts && opts.cwd})
 }
 const symlink = (from, to, isDir) => sh(`ln -s ${from} ${to}`)
 const move = (from, to) => sh(`mv ${from} ${to}`)
 
 const withoutExt = fname =>
   fname.slice(0, -(path.extname(fname).length))
-const makeModuleName = (source, base) => 
-  'Self__' + withoutExt(path.relative(base, source).slice(3))
-    .replace(/\//g, '__')
+const makeModuleName = (source, base) => {
+  return 'Self__' + withoutExt(
+    path.relative(base, source)
+      .replace(/^\./, '')
+      .replace(/^\//, '')
+      .replace(/\/$/, '')
+  ).replace(/\//g, '__')
+}
 
 const sourceFromModuleName = (moduleName, base) => {
   const parts = moduleName.split(/__/g).slice(1) // rm Self__
@@ -92,7 +97,7 @@ module.exports = {
   makeSourceFromImport, makeSource,
   ocamlLink, ocamlCompile,
   makeTmpDir,
-  rmDir,
+  rmDir, sh,
   getImportPrefix,
 }
 

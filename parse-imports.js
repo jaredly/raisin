@@ -5,18 +5,26 @@ module.exports = (file, importPrefix) => {
   const text = fs.readFileSync(file).toString('utf8')
   // console.log('parsing', text)
   const deps = []
+  const found = {}
   text.replace(/\[%%import \((\w+)\) from ([\w\.]+)\]/g, (_, target, source) => {
     const parts = source.split(/\./g)
     if (parts[0] === 'Self') {
-      deps.push({
-        isSelf: true,
-        name: 'Self' + importPrefix + '__' + (parts.length === 1 ? target : parts[1])
-      })
+      const name = 'Self' + importPrefix + '__' + (parts.length === 1 ? target : parts[1])
+      if (!found[name]) {
+        found[name] = true
+        deps.push({
+          isSelf: true,
+          name: name
+        })
+      }
     } else {
-      deps.push({
-        name: parts[0],
-        full: parts.concat([target]),
-      })
+      if (!found[parts[0]]) {
+        found[parts[0]] = true
+        deps.push({
+          name: parts[0],
+          full: parts.concat([target]),
+        })
+      }
     }
   })
 

@@ -7,24 +7,30 @@ const {
   makeTmpDir, rmDir,
   getImportPrefix,
 } = require('./utils')
+const processDependencies = require('./process-dependencies')
 const parseImports = require('./parse-imports')
 const fs = require('fs')
 
 module.exports = (config, ctx) => {
+  // process deps
+  processDependencies(config, ctx)
+  // Make the main bin?
   const dest = path.join(ctx.paths.bin, config.name)
   makeBin(
     dest,
     makeSource(config.ocaml.bin, ctx.paths),
     ctx
   )
-  if (!fs.existsSync(ctx.paths.base)) {
+  // TODO is this the right place?
+  if (!fs.existsSync(path.join(ctx.paths.base, config.name))) {
     symlink(dest, ctx.paths.base)
   }
 }
 
 const makeBin = (dest, refile, ctx) => {
   const compiled = getCompiled(refile, ctx)
-  ocamlLink(dest, [].concat(...compiled.cmo))
+  const cmos = [].concat(...compiled.cmo)
+  ocamlLink(dest, cmos.filter((x, i) => cmos.indexOf(x, i+1) === -1))
 }
 
 const getPackageCmos = (item, ctx) => {
@@ -79,17 +85,17 @@ const getCompiled = (item, ctx) => {
   return results
 }
 
-const getBoth = (item, ctx) => {
-}
-
 const makeCmo = (item, deps, results, ctx) => {
   // console.log('MAKE CMO', item)
   const tmp = makeTmpDir(ctx.paths.tmp)
   const source = item.moduleName + '.ml'
   const fullName = path.join(tmp, source)
   symlink(item.source, fullName)
+  const found = {}
+  found[item['archive(interface)']] = true
   results.cmi.forEach(dep => {
-    if (dep !== item['archive(interface)']) {
+    if (!found[dep]) {
+      found[dep] = true
       symlink(dep, tmp, true)
     }
   })

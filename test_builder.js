@@ -12,7 +12,8 @@ const ctx = {
     bin: path.join(base, '_build', 'bin'),
   },
   deps: {
-    // TODO fill w/ deps data
+    opam: {},
+    npm: {},
   },
 }
 
