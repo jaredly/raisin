@@ -25,9 +25,12 @@ const makeModuleName = (source, base) => {
 
 const sourceFromModuleName = (moduleName, base, build) => {
   const parts = moduleName.split(/__/g).slice(1) // rm Self__
+  if (parts[0] === "n_p_m") {
+    parts[0] = 'node_modules'
+  }
   const full = path.join(base, parts.join('/'))
   if (fs.existsSync(full + '.re')) {
-    return {path: full + '.re', pp: 'refmt'}
+    return {path: full + '.re'}
   }
   if (fs.existsSync(full + '.ml')) {
     return {path: full + '.ml'}
@@ -48,21 +51,26 @@ const sourceFromModuleName = (moduleName, base, build) => {
     }
   }
   if (fs.existsSync(full + '/mod.re')) {
-    return {path: full + '/mod.re', pp: 'reason'}
+    return {path: full + '/mod.re'}
   }
   if (fs.existsSync(full + '/mod.ml')) {
     return {path: full + '/mod.ml'}
   }
-  throw new Error('Unknown module (no file found): ' + moduleName)
+  throw new Error('Unknown module (no file found): ' + moduleName + ' looked in ' + full)
 }
 
-const getImportPrefix = (fullPath, base) => {
-  let prefix = path.relative(base, path.dirname(fullPath))
-  // console.log('prefix!', prefix)
+const getImportPrefix = (item, base) => {
+  const fullPath = item.path
+  const isNpm = item.type === 'npm'
+  const prefix = path.relative(isNpm ? item.config.base : base, path.dirname(fullPath))
   let premod = prefix.replace(/^\//, '')
     .replace(/\/$/, '')
     .replace(/\//g, '__')
-  return premod.length ? '__' + premod : ''
+  premod = premod ? '__' + premod : ''
+  if (isNpm) {
+    return "__n_p_m__" + item.config.name + premod
+  }
+  return premod
 }
 
 const ocamlLink = (dest, cmos) => {
@@ -73,7 +81,8 @@ const ocamlCompile = (filename, config) => {
   if (config.showSource) {
     console.log('[[[', path.basename(filename), ']]]')
   }
-  sh(`ocamlc ${config.showSource ? '-dsource' : ''} ${config.pp ? '-pp ' + config.pp : ''} -ppx "${IMPORT_PPX} ${config.prefix}" -c -impl ${filename}`, {cwd: config.cwd})
+  const pp = filename.match(/\.re$/) ? '-pp refmt' : ''
+  sh(`ocamlc ${config.showSource ? '-dsource' : ''} ${pp} -ppx "${IMPORT_PPX} ${config.prefix}" -c -impl ${filename}`, {cwd: config.cwd})
 }
 
 const menhirCompile = (filename, config) => {
@@ -99,15 +108,17 @@ const makeSource = (source, paths) => {
   }
 }
 
-const makeSourceFromImport = (moduleName, paths) => {
+const makeSourceFromImport = (moduleName, paths, item) => {
   const config = sourceFromModuleName(moduleName, paths.base, paths.build)
+  const base = item.type === 'npm' ? item.config.build : paths.build
   return Object.assign({
-    type: 'source',
+    type: item.type,
     moduleName,
     plugins: [],
+    config: item.config,
     source: config.path,
-    'archive(byte)': path.join(paths.build, moduleName + '.cmo'),
-    'archive(interface)': path.join(paths.build, moduleName + '.cmi'),
+    'archive(byte)': path.join(base, moduleName + '.cmo'),
+    'archive(interface)': path.join(base, moduleName + '.cmi'),
   }, config)
 }
 

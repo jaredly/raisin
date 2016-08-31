@@ -14,6 +14,10 @@ const fs = require('fs')
 module.exports = (config, ctx) => {
   // process deps
   processDependencies(config, ctx)
+  buildBins(config, ctx)
+}
+
+const buildBins = (config, ctx) => {
   // console.log(ctx.deps)
   if (typeof config.ocaml.bin === 'string') {
     config.ocaml.bin = {[config.name]: config.ocaml.bin}
@@ -41,29 +45,18 @@ const makeBin = (dest, refile, ctx) => {
   ocamlLink(dest, filtered)
 }
 
-const getPackageCmos = (item, ctx) => {
+const getOpamCmos = (item, ctx) => {
   if (!item) {
     // Umm is this OK?
     return []
   }
-  if (item.type === 'opam') {
-    const deps = item.requires.map(name => getPackageCmos(ctx.deps.opam[name], ctx))
-    return [].concat(...deps, item['archive(byte)'])
-  }
-  if (item.type === 'npm') {
-    const deps = item.requires.map(name => getPackageCmos(ctx.deps.npm[name], ctx))
-    return [].concat(...deps, item['archive(byte)'])
-  }
-  console.log(item)
-  throw new Error('unknown type')
+  const deps = item.requires.map(name => getOpamCmos(ctx.deps.opam[name], ctx))
+  return [].concat(...deps, item['archive(byte)'])
 }
 
 const getCompiled = (item, ctx) => {
-  if (item.type !== 'source') {
-    return {
-      cmo: getPackageCmos(item, ctx),
-      cmi: [item['archive(interface)']],
-    }
+  if (item.type === 'opam') {
+    return {cmo: getOpamCmos(item, ctx), cmi: [item['archive(interface)']],}
   }
   const deps = getDeps(item, ctx)
   const subs = deps.map(dep => getCompiled(dep, ctx))
@@ -107,7 +100,7 @@ const plugins = {
       })
       menhirCompile(fullName, {
         cwd: tmp,
-        prefix: getImportPrefix(item.path, ctx.paths.base),
+        prefix: getImportPrefix(item, ctx.paths.base),
       })
       move(path.join(tmp, item.moduleName + '.ml'), item.source)
       move(path.join(tmp, item.moduleName + '.mli'), item.interface)
@@ -145,36 +138,40 @@ const makeCmo = (item, deps, results, ctx) => {
     }
   })
   try {
-    // TODO ppx, pp
+    // TODO ppx
     ocamlCompile(fullName, {
       cwd: tmp,
-      prefix: getImportPrefix(item.path, ctx.paths.base),
+      prefix: getImportPrefix(item, ctx.paths.base),
       showSource: ctx.opts.showSource,
       pp: item.pp,
     })
   } catch (e) {
-    const match = e.message.match(/Error: Unbound module (\w+)/)
-    if (match) {
-      console.log(deps)
-      console.log(tmp)
-      console.log('\n')
-      console.log(`  Undefined module "${match[1]}" in ${item.moduleName} \n    (${item.path})`)
-      const maybepath = path.join(path.dirname(item.path), match[1].toLowerCase() + '.ml')
-      if (fs.existsSync(maybepath)) {
-        console.log(`Looks like there's a file ${maybepath} -- did you forget to import it?`)
-      }
-      console.log('\n')
-      process.exit(1)
-    }
-    // console.error(e)
-    console.log(Object.keys(found))
-    console.log(results)
-    console.log(item)
-    throw e
+    showModuleError(e)
   }
   move(path.join(tmp, item.moduleName + '.cmi'), item['archive(interface)'])
   move(path.join(tmp, item.moduleName + '.cmo'), item['archive(byte)'])
   rmDir(tmp)
+}
+
+const showModuleError = (e, item) => {
+  const match = e.message.match(/Error: Unbound module (\w+)/)
+  if (match) {
+    console.log(deps)
+    console.log(tmp)
+    console.log('\n')
+    console.log(`  Undefined module "${match[1]}" in ${item.moduleName} \n    (${item.path})`)
+    const maybepath = path.join(path.dirname(item.path), match[1].toLowerCase() + '.ml')
+    if (fs.existsSync(maybepath)) {
+      console.log(`Looks like there's a file ${maybepath} -- did you forget to import it?`)
+    }
+    console.log('\n')
+    process.exit(1)
+  }
+  // console.error(e)
+  console.log(Object.keys(found))
+  console.log(results)
+  console.log(item)
+  throw e
 }
 
 const system = ['Lexing', 'String', 'Format']
@@ -183,7 +180,6 @@ _deps = {}
 const getDeps = (item, ctx) => {
   const file = item.path.match(/\.mll$/) ? item.source : item.path
 
-  // && _deps[file].time > getMtime(file)
   if (_deps[file] ) {
     return _deps[file].imports
   }
@@ -196,14 +192,16 @@ const getDeps = (item, ctx) => {
     })
   }
 
-  const imports = parseImports(file, getImportPrefix(item.path, ctx.paths.base)).map(item => {
-    if (item.isSelf) {
-      return makeSourceFromImport(item.name, ctx.paths)
+  const isNpm = item.type === 'npm'
+  const prefix = getImportPrefix(item, ctx.paths.base)
+  const imports = parseImports(file, prefix).map(imp => {
+    if (imp.isSelf) {
+      return makeSourceFromImport(imp.name, ctx.paths, item)
     } else {
-      const dep = ctx.deps.npm[item.name] || ctx.deps.opam[item.name]
-      if (!dep && system.indexOf(item.name) === -1) {
+      const dep = ctx.deps.npm[imp.name] || ctx.deps.opam[imp.name]
+      if (!dep && system.indexOf(imp.name) === -1) {
         // console.log(ctx.deps.opam)
-        throw new Error(`Unrecognized package: ${item.name}. Is it declared in package.json?`)
+        throw new Error(`Unrecognized package: ${imp.name}. Is it declared in package.json?`)
       }
       return dep
     }

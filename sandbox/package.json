@@ -5,5 +5,8 @@
     "opam": {
       "Yojson": "yojson"
     }
+  },
+  "dependencies": {
+    "cheese": "*"
   }
 }

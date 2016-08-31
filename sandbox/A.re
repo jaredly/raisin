@@ -3,6 +3,7 @@
 [%%import E & from Self.D];
 [%%import {name: d_name} from Self.D];
 [%%import {from_string, to_string} from Yojson.Safe];
+[%%import {names: names} from Cheese];
 
 print_endline "A ";
 print_endline ("Hello B - " ^ B.name);

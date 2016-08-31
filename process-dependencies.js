@@ -3,10 +3,11 @@ const fs = require('fs')
 const {sh} = require('./utils')
 const capitalize = x => x[0].toUpperCase() + x.slice(1)
 const parseOpamMeta = require('./parse-opam-meta')
+const mkdirp = require('mkdirp')
 
 module.exports = (config, ctx) => {
   processOpam(config, ctx)
-  // processNpm(config, ctx)
+  processNpm(config, ctx)
 }
 
 const ocamlFind = name => sh(`ocamlfind query -r ${name}`).toString('utf8').split(/\n/g).map(x => x.trim()).filter(x => x)
@@ -77,6 +78,36 @@ const processOpam = (config, ctx) => {
   })
 }
 
+const processNpm = (config, ctx) => {
+  ctx.deps.npm = {}
+  Object.keys(config.dependencies || {}).forEach(name => {
+    const sourceBase = path.join(ctx.paths.base, 'node_modules', name)
+    const config = require(path.join(sourceBase, 'package.json'))
+    const build = path.join(ctx.paths.npm, name)
+    config.base = sourceBase
+    config.build = build
+    config.name = name
+    mkdirp(build)
+    const basename = path.join(build, name)
+    const meta = {
+      name,
+      type: 'npm',
+      config,
+      path: path.join(sourceBase, config.main),
+      source: path.join(sourceBase, config.main),
+      moduleName: name,
+      'archive(byte)': basename + '.cmo',
+      'archive(interface)': basename + '.cmi',
+      'archive(native)': basename + '.cmx',
+      requires: Object.keys(config.dependencies || {})
+    }
+    ctx.deps.npm[name] = meta
+    ctx.deps.npm[capitalize(name)] = meta
+  })
+  // TODO devDependencies
+  // TODO peerDependencies?
+}
+
 const processMeta = (config, ctx, key, name) => {
   const found = sh(`ocamlfind query -r ${name}`).toString('utf8').split(/\n/g).map(x => x.trim()).filter(x => x)
   // console.log(key, name, 'found', found)
@@ -125,8 +156,4 @@ const processMeta = (config, ctx, key, name) => {
       }
     }
   })
-}
-
-const processNpm = (config, ctx) => {
-  ctx.deps.npm = {}
 }

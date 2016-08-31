@@ -17,6 +17,7 @@ const ctx = {
     build: path.join(base, '_build'),
     tmp: path.join(base, '_build', 'tmp'),
     bin: path.join(base, '_build', 'bin'),
+    npm: path.join(base, '_build', 'npm'),
   },
   deps: {
     opam: {},
@@ -30,5 +31,6 @@ const ctx = {
 mkdirp.sync(ctx.paths.build)
 mkdirp.sync(ctx.paths.tmp)
 mkdirp.sync(ctx.paths.bin)
+mkdirp.sync(ctx.paths.npm)
 
 build(config, ctx)
