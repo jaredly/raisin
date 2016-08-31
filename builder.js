@@ -131,8 +131,9 @@ const makeCmo = (item, deps, results, ctx) => {
       }
     })
   }
+  const ext = path.extname(item.source)
   const tmp = makeTmpDir(ctx.paths.tmp)
-  const source = item.moduleName + '.ml'
+  const source = item.moduleName + ext
   const fullName = path.join(tmp, source)
   symlink(item.source, fullName)
   const found = {}
@@ -149,11 +150,12 @@ const makeCmo = (item, deps, results, ctx) => {
       cwd: tmp,
       prefix: getImportPrefix(item.path, ctx.paths.base),
       showSource: ctx.opts.showSource,
+      pp: item.pp,
     })
   } catch (e) {
     const match = e.message.match(/Error: Unbound module (\w+)/)
     if (match) {
-      // console.log(deps)
+      console.log(deps)
       console.log(tmp)
       console.log('\n')
       console.log(`  Undefined module "${match[1]}" in ${item.moduleName} \n    (${item.path})`)

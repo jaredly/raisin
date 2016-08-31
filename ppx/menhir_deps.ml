@@ -10,15 +10,15 @@ let endswith main suffix =
   else
     String.sub main (ml - sl) sl = suffix
 
-let (selfPath, file, isRe) =
+let (selfPath, file, onStdin) =
   match Array.to_list Sys.argv with
     | _::path::ml::_ when endswith ml ".ml" -> (path, ml, false)
-    | _::path::re::_ when endswith re ".re" -> (path, re, true)
+    | _::path::ml::_ when ml = "-" -> (path, ml, true)
     | _ -> failwith "Bad args"
 
 let lexer =
-  if isRe then
-    failwith "Reason not yet supported"
+  if onStdin then
+    Lexing.from_channel stdin
   else
     Lexing.from_channel (open_in file)
 

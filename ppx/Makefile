@@ -1,5 +1,5 @@
 
-both: ppx build
+both: ppx build menhir
 
 ppx:
 	@rm -rf _build
@@ -34,7 +34,7 @@ build: setup_build
 					../compilerLibs.cmo \
 					Self__Other.cmo Self__Main.cmo
 
-check: ppx setup_build
+check: ppx setup_build menhir
 	@cd _build_test && ocamlc -c Self__Other.ml
 	@cd _build_test && ln -s /Users/jared/.opam/new-reason/lib/yojson/yojson.cmi ./
 	@cd _build_test && ocamlc -c -dsource -ppx '../convert_imports.native ' Self__Main.ml

@@ -1,4 +1,5 @@
 {
+	"name": "raisin",
   "devDependencies": {
     "mkdirp": "^0.5.1"
   }

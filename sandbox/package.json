@@ -1,7 +1,7 @@
 {
   "name": "awesome",
   "ocaml": {
-    "bin": "./A.ml",
+    "bin": "./A.re",
     "opam": {
       "Yojson": "yojson"
     }

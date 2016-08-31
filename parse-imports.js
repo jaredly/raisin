@@ -6,14 +6,20 @@ const {sh} = require('./utils')
 const deps = path.join(__dirname, 'ppx', 'menhir_deps.native')
 
 module.exports = (file, importPrefix) => {
-  let cmd
   let menhir = file.match(/\.mly$/)
+  let re = file.match(/\.re$/)
+  let out
   if (menhir) {
-    cmd = `menhir --depend "${file}" --unused-tokens --ocamldep '${deps} "${importPrefix}"'`
+    out = sh(`menhir --depend "${file}" --unused-tokens --ocamldep '${deps} "${importPrefix}"'`)
+  } else if (re) {
+    out = sh(`refmt -parse re -print ml ${file}`)
+    console.log('here', out.toString('utf8'))
+    out = sh(`${deps} "${importPrefix}" -`, {input: out.toString('utf8')})
+    console.log('reason', out.toString('utf8'))
   } else {
-    cmd = `${deps} "${importPrefix}" "${file}"`
+    out = sh(`${deps} "${importPrefix}" "${file}"`)
   }
-  const results = sh(cmd).toString('utf8')
+  const results = out.toString('utf8')
     .split(/\n/g)[0].split(' : ')[1].split(' ').filter(x => !!x.trim())
     .map(name => name.split('.')[0].trim())
   if (menhir) results.push('MenhirLib')

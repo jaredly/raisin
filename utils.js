@@ -7,7 +7,7 @@ const IMPORT_PPX = path.join(__dirname, 'ppx', 'convert_imports.native')
 
 const sh = (cmd, opts) => {
   // console.log('SH:', cmd, opts && opts.cwd)
-  return execSync(cmd, {cwd: opts && opts.cwd})
+  return execSync(cmd, {cwd: opts && opts.cwd, input: opts && opts.input})
 }
 const symlink = (from, to, isDir) => sh(`ln -s ${from} ${to}`)
 const move = (from, to) => sh(`mv ${from} ${to}`)
@@ -27,7 +27,7 @@ const sourceFromModuleName = (moduleName, base, build) => {
   const parts = moduleName.split(/__/g).slice(1) // rm Self__
   const full = path.join(base, parts.join('/'))
   if (fs.existsSync(full + '.re')) {
-    return {path: full + '.re', pp: 'reason'}
+    return {path: full + '.re', pp: 'refmt'}
   }
   if (fs.existsSync(full + '.ml')) {
     return {path: full + '.ml'}
@@ -73,7 +73,7 @@ const ocamlCompile = (filename, config) => {
   if (config.showSource) {
     console.log('[[[', path.basename(filename), ']]]')
   }
-  sh(`ocamlc ${config.showSource ? '-dsource' : ''} -ppx "${IMPORT_PPX} ${config.prefix}" -c ${filename}`, {cwd: config.cwd})
+  sh(`ocamlc ${config.showSource ? '-dsource' : ''} ${config.pp ? '-pp ' + config.pp : ''} -ppx "${IMPORT_PPX} ${config.prefix}" -c -impl ${filename}`, {cwd: config.cwd})
 }
 
 const menhirCompile = (filename, config) => {
@@ -92,6 +92,7 @@ const makeSource = (source, paths) => {
     type: 'source',
     path: path.join(paths.base, source),
     source: path.join(paths.base, source),
+    pp: path.extname(source) === '.re' ? 'refmt' : null,
     moduleName,
     'archive(byte)': path.join(paths.build, moduleName + '.cmo'),
     'archive(interface)': path.join(paths.build, moduleName + '.cmi'),

@@ -15,6 +15,11 @@ module Wrap_importType = struct
 end
 include Wrap_importType
 
+let maybeDot source final =
+  match final with
+  | Some x -> Ldot (source, x)
+  | None -> source
+
 let rec makeSourceAndDepName source final selfPath =
   match source with
   | Lident "Self" ->
@@ -27,22 +32,24 @@ let rec makeSourceAndDepName source final selfPath =
   | Lident x -> (Lident x), x
   | Ldot (Lident "Self", two) ->
     let name = "Self" ^ selfPath ^ "__" ^ two in
-    (Lident name, name)
+    (maybeDot (Lident name) final, name)
   | Ldot (one, two) ->
     let (source, dep) = makeSourceAndDepName one None selfPath in
-    (Ldot (source, two), dep)
+    (maybeDot (Ldot (source, two)) final, dep)
   | Lapply (one, two) ->
     let (source, dep) = makeSourceAndDepName one None selfPath in
-    (Lapply (source, two), dep)
+    (maybeDot (Lapply (source, two)) final, dep)
 
 (*
 
 import Thing
 
 import * from Two
-import One from Two.Three -> ('One', Thing, 'Dep name')
-import One from Self.Two.Three
-import One from Self
+import (One) from Two.Three -> ('One', Thing, 'Dep name')
+import (One) from Self.Two.Three
+import (One) from Self
+// alternate syntax
+import One & from Self.Two
 
 import type {one, two} from Two.Three
 import type {one, two} from Self.Two
@@ -87,6 +94,16 @@ let item_to_import = fun structure_item selfPath ->
                 Some (TypesFrom(conv items, source, depname))
             | _ -> failwith "Invalid import")
 
+        (* import Mod & from Place *)
+        |  Pexp_apply
+            ({pexp_desc = Pexp_ident {txt = Lident "&"}},
+              [("", {pexp_desc = Pexp_construct ({txt = Lident left}, _)});
+               ("", {pexp_desc = Pexp_apply
+                      ({pexp_desc = Pexp_ident {txt = Lident "from"}},
+                       [("", {pexp_desc = Pexp_construct ({txt = source}, _)})])});]) ->
+              let (source, depname) = makeSourceAndDepName source (Some left) selfPath in
+              Some (ModuleFrom (left, source, depname))
+
         |  Pexp_apply
             ({pexp_desc = target},
               [("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
@@ -104,7 +121,7 @@ let item_to_import = fun structure_item selfPath ->
                 let (source, depname) = makeSourceAndDepName source None selfPath in
                 Some (ValuesFrom(conv items, source, depname))
 
-            (* import Mod from Place *)
+            (* import (Mod) from Place *)
             | Pexp_construct ({txt = Lident left}, _) ->
                 let (source, depname) = makeSourceAndDepName source (Some left) selfPath in
                 Some (ModuleFrom (left, source, depname))
