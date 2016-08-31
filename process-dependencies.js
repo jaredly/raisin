@@ -11,10 +11,38 @@ module.exports = (config, ctx) => {
 
 const ocamlFind = name => sh(`ocamlfind query -r ${name}`).toString('utf8').split(/\n/g).map(x => x.trim()).filter(x => x)
 
+const compilerLibs = {
+  "name": "compiler-libs.common",
+  "lib(byte)": "ocamlcommon.cma",
+  "lib(native)": "ocamlcommon.cmxa",
+  "children": [
+    "clflags",
+    "syntaxerr",
+    "location",
+    "parsetree",
+    "ast_helper",
+    "ast_mapper",
+    "asttypes",
+    "longident",
+    "pprintast",
+    "lexer",
+    "misc",
+    "config",
+    "printast",
+    "warnings",
+    "parser",
+    "syntaxerr",
+    "location"
+  ]
+}
+
 const processOpam = (config, ctx) => {
   ctx.deps.opam = {}
   Object.keys(config.ocaml.opam).forEach(key => {
-    const conf = config.ocaml.opam[key]
+    let conf = config.ocaml.opam[key]
+    if (conf === 'compiler-libs.common') {
+      conf = compilerLibs
+    }
     if (typeof conf === 'string') {
       processMeta(config, ctx, key, conf)
     } else {
