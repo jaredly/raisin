@@ -1,4 +1,5 @@
-# Raisin - a build system for Reason & Ocaml
+# Raisin
+a build system for Reason & Ocaml
 
 ## Import syntax
 First via a `ppx`, in future it will be included in the Reason syntax
