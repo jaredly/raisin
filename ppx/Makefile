@@ -1,15 +1,13 @@
 
 both: ppx build
 
-ppx: convert_imports.native
-
-convert_imports.native: convert_imports.ml
+ppx:
 	@rm -rf _build
 	@mkdir _build
 	@cd _build && ln -s ../convert_imports.ml ../convert_utils.ml ./
 	@cd _build && ocamlfind ocamlopt -package ppx_tools.metaquot -package compiler-libs.common convert_utils.ml convert_imports.ml -linkpkg -o ../convert_imports.native
 
-menhir_deps.native: menhir_deps.ml
+menhir:
 	@rm -rf _build
 	@mkdir _build
 	@cd _build && ln -s ../menhir_deps.ml ../convert_utils.ml ./
@@ -64,3 +62,5 @@ clean:
 	rm -rf convert_imports.native
 	rm -rf _build_test
 	rm -rf _build
+
+.PHONY: menhir ppx

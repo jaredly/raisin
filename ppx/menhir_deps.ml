@@ -10,10 +10,10 @@ let endswith main suffix =
   else
     String.sub main (ml - sl) sl = suffix
 
-let (file, isRe) =
+let (selfPath, file, isRe) =
   match Array.to_list Sys.argv with
-    | _::ml::_ when endswith ml ".ml" -> (ml, true)
-    | _::re::_ when endswith re ".re" -> (re, true)
+    | _::path::ml::_ when endswith ml ".ml" -> (path, ml, false)
+    | _::path::re::_ when endswith re ".re" -> (path, re, true)
     | _ -> failwith "Bad args"
 
 let lexer =
@@ -27,16 +27,22 @@ let pstr = Parse.implementation lexer
 let imports = ref []
 
 let mapper = { Ast_mapper.default_mapper with
-  structure_item = fun mapper item -> begin
-  (match Convert_utils.item_to_import item "__src" with
+  structure_item = (fun mapper item ->
+  let _ = (match Convert_utils.item_to_import item selfPath with
     | Some import -> (match import with
       | Single x
+      | All (_, x)
       | ModuleFrom (_, _, x)
       | TypesFrom (_, _, x)
       | ValuesFrom (_, _, x) ->
        imports := x::!imports; ()
     )
-    | None -> ());
+    | None -> ()) in
   (default_mapper.structure_item mapper item)
-  end
-}
+  )
+};;
+
+let _ = mapper.structure mapper pstr;;
+
+(* let _ = List.iter (fun x -> print_endline x) !imports *)
+let _ = print_endline ("some.cmo : " ^ String.concat " " (List.map (fun x -> x ^ ".cmo") !imports))

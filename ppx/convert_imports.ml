@@ -40,6 +40,7 @@ let import_to_structure_items import loc = match import with
   | ModuleFrom (name, source, _) -> [makeMod name source loc]
   | TypesFrom (types, source, _) -> List.map (fun (left, right) -> makeType left right source loc) types
   | ValuesFrom (values, source, _) -> List.map (fun (left, right) -> makeValue left right source loc) values
+  | All (source, _) -> [{pstr_desc = Pstr_open {popen_lid = {txt = source; loc = loc}; popen_override = Fresh; popen_loc = loc; popen_attributes = []}; pstr_loc = loc}]
 
 let map_item = fun default_mapper mapper structure_item ->
   match Convert_utils.item_to_import structure_item selfPath with

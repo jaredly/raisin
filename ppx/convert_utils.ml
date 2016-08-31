@@ -8,6 +8,7 @@ module Wrap_importType = struct
 (* the Longident's represent the "source module" *)
   type importType =
     | Single of string
+    | All of Longident.t * string
     | ModuleFrom of string * Longident.t * string
     | TypesFrom of (string * string) list * Longident.t * string
     | ValuesFrom of (string * string) list * Longident.t * string
@@ -38,6 +39,7 @@ let rec makeSourceAndDepName source final selfPath =
 
 import Thing
 
+import * from Two
 import One from Two.Three -> ('One', Thing, 'Dep name')
 import One from Self.Two.Three
 import One from Self
@@ -54,14 +56,24 @@ import intf Something from Otherplace // ?
 
 let item_to_import = fun structure_item selfPath ->
       match structure_item with
-      | { pstr_desc = Pstr_extension (({ txt = "import"; loc }, apply), _)} ->
+      | { pstr_desc = Pstr_extension (({ txt = "import"; loc }, (PStr [{ pstr_desc = Pstr_eval ({pexp_desc = apply}, _) }])), _)} ->
         begin match apply with
+        (* import Thing *)
+        | Pexp_construct ({txt = Lident left}, _) ->
+          Some (Single left)
+
+        (* import ( * ) from Thing *)
+        | Pexp_apply ({pexp_desc = Pexp_ident {txt = Lident "*"}}, [("", {pexp_desc=Pexp_ident {txt=Lident "from"}});
+                                            ("", {pexp_desc = Pexp_construct ({txt = source}, _)})]) ->
+          let (source, depname) = (makeSourceAndDepName source None selfPath) in
+          Some (All (source, depname))
+
         (* import typ {thing} from Place *)
-        | PStr [{ pstr_desc = Pstr_eval ({ pexp_desc = Pexp_apply
+        |  Pexp_apply
             ({pexp_desc = Pexp_ident {txt = Lident "typ"}},
               [("", {pexp_desc = target});
               ("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
-              ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) }, _)}] ->
+              ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) ->
 
           (match target with
             | Pexp_record (items, _) ->
@@ -75,14 +87,10 @@ let item_to_import = fun structure_item selfPath ->
                 Some (TypesFrom(conv items, source, depname))
             | _ -> failwith "Invalid import")
 
-        (* import Thing *)
-        | PStr [{ pstr_desc = Pstr_eval ({pexp_desc = Pexp_construct ({txt = Lident left}, _)}, _)}] ->
-          Some (Single left)
-
-        | PStr [{ pstr_desc = Pstr_eval ({ pexp_desc = Pexp_apply
+        |  Pexp_apply
             ({pexp_desc = target},
               [("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
-              ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) }, _)}] ->
+              ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) ->
 
           (match target with
             (* import {thing} from Place *)

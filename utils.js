@@ -23,20 +23,35 @@ const makeModuleName = (source, base) => {
   ).replace(/\//g, '__')
 }
 
-const sourceFromModuleName = (moduleName, base) => {
+const sourceFromModuleName = (moduleName, base, build) => {
   const parts = moduleName.split(/__/g).slice(1) // rm Self__
   const full = path.join(base, parts.join('/'))
   if (fs.existsSync(full + '.re')) {
-    return full + '.re'
+    return {path: full + '.re', pp: 'reason'}
   }
   if (fs.existsSync(full + '.ml')) {
-    return full + '.ml'
+    return {path: full + '.ml'}
+  }
+  if (fs.existsSync(full + '.mll')) {
+    return {
+      path: full + '.mll',
+      plugins: ['ocamllex'],
+      source: path.join(build, moduleName + '.ml'),
+    }
+  }
+  if (fs.existsSync(full + '.mly')) {
+    return {
+      path: full + '.mly',
+      plugins: ['menhir'],
+      source: path.join(build, moduleName + '.ml'),
+      interface: path.join(build, moduleName + '.mli'),
+    }
   }
   if (fs.existsSync(full + '/mod.re')) {
-    return full + '/mod.re'
+    return {path: full + '/mod.re', pp: 'reason'}
   }
   if (fs.existsSync(full + '/mod.ml')) {
-    return full + '/mod.ml'
+    return {path: full + '/mod.ml'}
   }
   throw new Error('Unknown module (no file found): ' + moduleName)
 }
@@ -50,8 +65,9 @@ const getImportPrefix = (fullPath, base) => {
   return premod.length ? '__' + premod : ''
 }
 
-const ocamlLink = (dest, cmos, cmo) =>
+const ocamlLink = (dest, cmos) => {
   sh(`ocamlc -o ${dest} ${cmos.join(' ')}`)
+}
 
 const ocamlCompile = (filename, config) => {
   if (config.showSource) {
@@ -60,10 +76,21 @@ const ocamlCompile = (filename, config) => {
   sh(`ocamlc ${config.showSource ? '-dsource' : ''} -ppx "${IMPORT_PPX} ${config.prefix}" -c ${filename}`, {cwd: config.cwd})
 }
 
+const menhirCompile = (filename, config) => {
+  // TODO pp ppx
+  sh(`menhir --strict --unused-tokens --fixed-exception --table --infer --ocamlc "ocamlc -ppx '${IMPORT_PPX} ${config.prefix}'" ${filename}`, {cwd: config.cwd})
+}
+
+const ocamllexCompile = (filename, dest) => {
+  // TODO pp ppx
+  sh(`ocamllex ${filename} -o ${dest}`)
+}
+
 const makeSource = (source, paths) => {
   const moduleName = makeModuleName(source, paths.base)
   return {
     type: 'source',
+    path: path.join(paths.base, source),
     source: path.join(paths.base, source),
     moduleName,
     'archive(byte)': path.join(paths.build, moduleName + '.cmo'),
@@ -72,20 +99,22 @@ const makeSource = (source, paths) => {
 }
 
 const makeSourceFromImport = (moduleName, paths) => {
-  const source = sourceFromModuleName(moduleName, paths.base)
-  return {
+  const config = sourceFromModuleName(moduleName, paths.base, paths.build)
+  return Object.assign({
     type: 'source',
-    source,
     moduleName,
+    plugins: [],
+    source: config.path,
     'archive(byte)': path.join(paths.build, moduleName + '.cmo'),
     'archive(interface)': path.join(paths.build, moduleName + '.cmi'),
-  }
+  }, config)
 }
 
+let tmpnum = 0
 const makeTmpDir = base => {
   const suffix = Date.now()
   // const suffix = Math.random().toString(16).slice(2)
-  const rand = path.join(base, 'tmp-' + suffix)
+  const rand = path.join(base, `tmp-${tmpnum++}-${suffix}`)
   mkdirp.sync(rand)
   return rand
 }
@@ -99,6 +128,6 @@ module.exports = {
   makeTmpDir,
   rmDir, sh,
   getImportPrefix,
+  menhirCompile,
+  ocamllexCompile,
 }
-
-

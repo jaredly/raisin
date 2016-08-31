@@ -30,9 +30,13 @@ const processOpam = (config, ctx) => {
         }
         if (fs.existsSync(full + '.cmo')) {
           meta['archive(byte)'] = full + '.cmo'
+        } else if (conf['lib(byte)']) {
+          meta['archive(byte)'] = path.join(base, conf['lib(byte)'])
         }
         if (fs.existsSync(full + '.cmx')) {
           meta['archive(native)'] = full + '.cmx'
+        } else if (conf['lib(native)']) {
+          meta['archive(native)'] = path.join(base, conf['lib(native)'])
         }
         if (!fs.existsSync(full + '.cmi')) {
           throw new Error(`Child module ${child} doesn't have a .cmi (looked in ${full + '.cmi'}`)
@@ -98,4 +102,3 @@ const processMeta = (config, ctx, key, name) => {
 const processNpm = (config, ctx) => {
   ctx.deps.npm = {}
 }
-
