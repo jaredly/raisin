@@ -36,6 +36,8 @@ let mapper = { Ast_mapper.default_mapper with
       | TypesFrom (_, _, x)
       | ValuesFrom (_, _, x) ->
        imports := x::!imports; ()
+      | PpxFrom (_, x) ->
+       imports := (x ^ ".ppx")::!imports; ()
     )
     | None -> ()) in
   (default_mapper.structure_item mapper item)

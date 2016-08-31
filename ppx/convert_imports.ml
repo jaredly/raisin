@@ -37,6 +37,7 @@ let makeValue left rename source loc =
 
 let import_to_structure_items import loc = match import with
   | Single name -> [[%stri let _ = ()]]
+  | PpxFrom (_, _) -> [[%stri let _ = ()]]
   | ModuleFrom (name, source, _) -> [makeMod name source loc]
   | TypesFrom (types, source, _) -> List.map (fun (left, right) -> makeType left right source loc) types
   | ValuesFrom (values, source, _) -> List.map (fun (left, right) -> makeValue left right source loc) values

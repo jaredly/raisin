@@ -82,7 +82,7 @@ const ocamlCompile = (filename, config) => {
     console.log('[[[', path.basename(filename), ']]]')
   }
   const pp = filename.match(/\.re$/) ? '-pp refmt' : ''
-  sh(`ocamlc ${config.showSource ? '-dsource' : ''} ${pp} -ppx "${IMPORT_PPX} ${config.prefix}" -c -impl ${filename}`, {cwd: config.cwd})
+  sh(`ocamlc ${config.showSource ? '-dsource' : ''} ${pp} -ppx "${IMPORT_PPX} ${config.prefix}" ${config.ppx.map(p => ' -ppx ' + p)} -c -impl ${filename}`, {cwd: config.cwd})
 }
 
 const menhirCompile = (filename, config) => {
@@ -117,6 +117,7 @@ const makeSourceFromImport = (moduleName, paths, item) => {
     plugins: [],
     config: item.config,
     source: config.path,
+    base: base,
     'archive(byte)': path.join(base, moduleName + '.cmo'),
     'archive(interface)': path.join(base, moduleName + '.cmi'),
   }, config)

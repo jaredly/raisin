@@ -3,7 +3,9 @@
   "ocaml": {
     "bin": "./A.re",
     "opam": {
-      "Yojson": "yojson"
+      "Yojson": "yojson",
+      "CompilerLibs": "compiler-libs.common",
+      "Ppx_deriving_yojson": "ppx_deriving_yojson"
     }
   },
   "dependencies": {

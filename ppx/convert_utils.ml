@@ -12,6 +12,7 @@ module Wrap_importType = struct
     | ModuleFrom of string * Longident.t * string
     | TypesFrom of (string * string) list * Longident.t * string
     | ValuesFrom of (string * string) list * Longident.t * string
+    | PpxFrom of Longident.t * string
 end
 include Wrap_importType
 
@@ -48,7 +49,8 @@ import * from Two
 import (One) from Two.Three -> ('One', Thing, 'Dep name')
 import (One) from Self.Two.Three
 import (One) from Self
-// alternate syntax
+
+// alternate syntax (for reason, b/c reasons)
 import One & from Self.Two
 
 import type {one, two} from Two.Three
@@ -58,6 +60,8 @@ import {one, two} from Two.Three
 import {one, two} from Self.Two
 
 import intf Something from Otherplace // ?
+import ppx from Self.PpxThing
+import ppx from PackageWithAPpx
 
 *)
 
@@ -78,21 +82,27 @@ let item_to_import = fun structure_item selfPath ->
         (* import typ {thing} from Place *)
         |  Pexp_apply
             ({pexp_desc = Pexp_ident {txt = Lident "typ"}},
-              [("", {pexp_desc = target});
+              [("", {pexp_desc = Pexp_record (items, _)});
               ("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
               ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) ->
 
-          (match target with
-            | Pexp_record (items, _) ->
-                let rec conv items = match items with
-                  | [] -> []
-                  | ({txt = Lident left}, {pexp_desc = Pexp_ident {txt = Lident rename}})::rest ->
-                    (left, rename)::(conv rest)
-                  | _ -> failwith "Invalid types import"
-                in
-                let (source, depname) = makeSourceAndDepName source None selfPath in
-                Some (TypesFrom(conv items, source, depname))
-            | _ -> failwith "Invalid import")
+            let rec conv items = match items with
+              | [] -> []
+              | ({txt = Lident left}, {pexp_desc = Pexp_ident {txt = Lident rename}})::rest ->
+                (left, rename)::(conv rest)
+              | _ -> failwith "Invalid types import"
+            in
+            let (source, depname) = makeSourceAndDepName source None selfPath in
+            Some (TypesFrom(conv items, source, depname))
+
+        (* import ppx from Place *)
+        |  Pexp_apply
+            ({pexp_desc = Pexp_ident {txt = Lident "ppx"}},
+              [("", {pexp_desc = Pexp_ident {txt = Lident "from"}});
+              ("", {pexp_desc = Pexp_construct ({txt = source}, None)})]) ->
+
+            let (source, depname) = makeSourceAndDepName source None selfPath in
+            Some (PpxFrom(source, depname))
 
         (* import Mod & from Place *)
         |  Pexp_apply
